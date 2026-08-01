@@ -65,7 +65,7 @@ class FaceLoginApplication:
             aligner=FaceAligner(cfg.alignment),
             pose=SolvePnPPoseEstimator(),
             embedder=FaceEmbedder(model_name=cfg.detection.model_name),
-            quality=QualityGate(cfg.quality),
+            quality=QualityGate(cfg.quality, min_pose_confidence=0.3),
             coverage_config=cfg.coverage,
             logger=get_logger("face_login.controller"),
         )

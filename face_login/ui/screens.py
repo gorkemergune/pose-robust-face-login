@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -116,17 +117,20 @@ class ScreenRenderer:
         return self._to_bgr(img)
 
     def scan_banner(self, bgr_frame: np.ndarray, text: str, tone: str) -> np.ndarray:
-        """Draw a feedback banner along the bottom of a live scan frame."""
-        img = Image.fromarray(bgr_frame[:, :, ::-1])  # BGR -> RGB
-        overlay = img.copy()
-        od = ImageDraw.Draw(overlay)
-        color = self._tones.get(tone, self._blue)
-        h = img.height
-        od.rectangle([0, h - 70, img.width, h], fill=color)
-        img = Image.blend(img, overlay, 0.72)
-        d = ImageDraw.Draw(img)
-        self._center(d, h - 62, text, 30, True, (255, 255, 255))
-        return self._to_bgr(img)
+        """Draw a feedback banner along the bottom of a live scan frame (cv2).
+
+        Uses OpenCV drawing (not Pillow) so it is cheap enough to run on every
+        camera frame. English text renders fine with the Hershey font.
+        """
+        h, w = bgr_frame.shape[:2]
+        r, g, b = self._tones.get(tone, self._blue)
+        overlay = bgr_frame.copy()
+        cv2.rectangle(overlay, (0, h - 64), (w, h), (b, g, r), cv2.FILLED)
+        cv2.addWeighted(overlay, 0.7, bgr_frame, 0.3, 0.0, dst=bgr_frame)
+        (tw, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.85, 2)
+        cv2.putText(bgr_frame, text, ((w - tw) // 2, h - 22),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.85, (255, 255, 255), 2, cv2.LINE_AA)
+        return bgr_frame
 
     # -- primitives --------------------------------------------------------
 

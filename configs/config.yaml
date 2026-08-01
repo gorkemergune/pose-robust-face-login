@@ -18,7 +18,7 @@ camera:
 
 detection:
   model_name: "buffalo_l"
-  det_size: 640
+  det_size: 320          # smaller = much faster on CPU (fine for a close webcam face)
   det_threshold: 0.5
 
 alignment:
@@ -37,9 +37,9 @@ quality:
   stability_frames: 3
 
 coverage:
-  yaw_bins: 18
-  yaw_min: -90.0
-  yaw_max: 90.0
+  yaw_bins: 7            # fewer, reachable angles (estimated yaw is attenuated)
+  yaw_min: -30.0         # ~±30° estimated ≈ a comfortable head turn
+  yaw_max: 30.0
 
 recognition:
   embedding_dim: 512

@@ -144,12 +144,13 @@ Launch with `python -m face_login`. The **main menu** opens:
 <p align="center"><img src="docs/menu.png" width="640"></p>
 
 - **Kayıt Ol / Register** — click the button or press **`R`**, type a user name and
-  press **Enter** (or click **Gönder**). The camera opens and guides you through a
-  **180° scan**: turn your head slowly left ↔ right while the coverage bar fills.
-  Live feedback shows when a pose is **captured** (green) or why a frame was
-  **rejected** (red — e.g. "Sabit durun", "Kameraya yaklaşın"), plus a directional
-  hint ("Başınızı sola çevirin"). When every pose bin is covered, registration is
-  **saved** automatically. Re-registering an existing name overwrites the old data.
+  press **Enter** (or click **Submit**). The camera opens (mirrored, selfie-style)
+  and guides you through a **multi-angle scan**: slowly turn your head left ↔ right
+  while a live prompt shows your current angle and the next target
+  ("You +5 deg → turn left to -9"). Each new angle is **captured** (green) when the
+  quality gate passes, or the frame is **rejected** (red, e.g. "Hold still", "Move
+  closer"). When all angles are covered, registration is **saved** automatically.
+  Re-registering an existing name overwrites the old data.
 
   ![Registration scan](docs/register_demo.png)
 

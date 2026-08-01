@@ -1,7 +1,7 @@
 """Screen-driven application controller (state machine + input handling).
 
-Drives the multi-screen flow — main menu → (Register: name entry → guided 180°
-scan → saved) or (Login: scan → welcome → success) — by composing the injected
+Drives the multi-screen flow — main menu → (Register: name entry → guided
+multi-angle scan → saved) or (Login: scan → welcome → success) — by composing
 pipeline components, services, and UI renderers. It interprets keyboard/mouse
 input and manages the camera between scans. It contains no drawing primitives,
 cosine math, or SQL; rendering and persistence are delegated.
@@ -73,6 +73,7 @@ class ScreenController:
         self._name = ""
         self._active_name = ""
         self._welcome_at = 0.0
+        self._frame_no = 0
         self._msg = ("", "", "info")
         self._handlers: dict[State, Callable[[], None]] = {
             State.MENU: self._menu,
@@ -90,12 +91,6 @@ class ScreenController:
         self._logger.info("Application UI started.")
         while self._running:
             self._handlers[self._state]()
-
-    def stop_camera(self) -> None:
-        """Release the camera (used on shutdown too)."""
-        self._camera.close()
-
-    # -- screens -----------------------------------------------------------
 
     def _menu(self) -> None:
         frame, buttons = self._screens.menu()
@@ -126,8 +121,8 @@ class ScreenController:
         frame = self._read()
         if frame is None:
             return self._to_menu()
-        face, pose, quality, embedding = self._pipeline(frame)
-        tone, text = self._register_step(face, pose, quality, embedding, frame.timestamp)
+        face = self._first_face(frame)
+        tone, text = self._register_guide(frame, face)
         state = self._tracker.state()
         self._overlay.draw(frame.image, detected_face=face)
         self._coverage_bar.draw(frame.image, state)
@@ -142,18 +137,21 @@ class ScreenController:
         frame = self._read()
         if frame is None:
             return self._to_menu()
-        face, pose, quality, embedding = self._pipeline(frame)
-        tone, text = "negative", "No face detected"
-        if embedding is not None:
-            result = self._login.login(embedding)
-            if result.success:
-                self._active_name = result.user_name or "User"
-                self._camera.close()
-                self._welcome_at = perf_counter()
-                self._state = State.WELCOME
-                return
-            tone, text = "info", "Scanning…"
-        self._overlay.draw(frame.image, detected_face=face, pose=pose, quality=quality)
+        face = self._first_face(frame)
+        self._frame_no += 1
+        if face is None:
+            tone, text = "negative", "No face detected"
+        else:
+            tone, text = "info", "Scanning... hold still"
+            if self._frame_no % 3 == 0:  # throttle the heavy embed + match
+                result = self._login_attempt(frame, face)
+                if result is not None and result.success:
+                    self._active_name = result.user_name or "User"
+                    self._camera.close()
+                    self._welcome_at = perf_counter()
+                    self._state = State.WELCOME
+                    return
+        self._overlay.draw(frame.image, detected_face=face)
         display = self._screens.scan_banner(frame.image, text, tone)
         if (self._window.show(display) & 0xFF) == 27:
             self._to_menu()
@@ -175,34 +173,53 @@ class ScreenController:
             else:
                 self._state = State.MENU
 
-    # -- pipeline & steps --------------------------------------------------
-
-    def _pipeline(self, frame: Frame):
-        try:
-            faces = self._detector.detect(frame)
-            if not faces:
-                return None, None, None, None
-            face = faces[0]
-            aligned = self._aligner.align(frame, face)
-            pose = self._pose.estimate(face)
-            embedding = self._embedder.embed(aligned)
-            quality = self._quality.evaluate(frame, face, pose, embedding)
-            return face, pose, quality, embedding
-        except (EmbeddingError, DatabaseError) as exc:
-            self._logger.warning("Pipeline error: %s", exc)
-            return None, None, None, None
-
-    def _register_step(self, face, pose, quality, embedding, timestamp):
+    def _register_guide(self, frame: Frame, face):
         if face is None:
-            return "negative", "No face detected"
-        if quality is None:
-            return "info", "Processing…"
+            return "negative", "No face detected - look at the camera"
+        pose = self._pose.estimate(face)
+        state = self._tracker.state()
+        if state.bins[self._bin_index(pose.yaw)].captured:
+            return "info", self._guide_text(pose.yaw, state)
+        aligned = self._aligner.align(frame, face)
+        embedding = self._embedder.embed(aligned)
+        quality = self._quality.evaluate(frame, face, pose, embedding)
         if not quality.passed:
             return "negative", self._reason_hint(quality.reasons)
-        result = self._register.process(pose, quality, embedding, timestamp=timestamp)
+        result = self._register.process(pose, quality, embedding, timestamp=frame.timestamp)
         if result.stored:
-            return "positive", f"Captured ({result.current_bin:.0f}°)"
-        return "info", self._direction_hint(self._tracker.state())
+            done = self._tracker.state().captured_count
+            return "positive", f"Captured {result.current_bin:+.0f} deg   ({done}/{state.total_bins})"
+        return "info", "Hold still..."
+
+    def _guide_text(self, yaw: float, state) -> str:
+        targets = [b.yaw_center for b in state.remaining_bins]
+        if not targets:
+            return "Almost done..."
+        target = min(targets, key=lambda c: abs(c - yaw))
+        arrow = "turn right ->" if target > yaw else "<- turn left"
+        return f"You {yaw:+.0f} deg   {arrow} to {target:+.0f}   ({state.captured_count}/{state.total_bins})"
+
+    def _bin_index(self, yaw: float) -> int:
+        cfg = self._coverage_config
+        width = (cfg.yaw_max - cfg.yaw_min) / max(cfg.yaw_bins, 1)
+        return min(max(int((yaw - cfg.yaw_min) // width), 0), cfg.yaw_bins - 1)
+
+    def _first_face(self, frame: Frame):
+        try:
+            faces = self._detector.detect(frame)
+        except Exception as exc:  # keep the loop alive on a detection error
+            self._logger.warning("Detection error: %s", exc)
+            return None
+        return faces[0] if faces else None
+
+    def _login_attempt(self, frame: Frame, face):
+        try:
+            aligned = self._aligner.align(frame, face)
+            embedding = self._embedder.embed(aligned)
+            return self._login.login(embedding)
+        except (EmbeddingError, DatabaseError) as exc:
+            self._logger.warning("Login error: %s", exc)
+            return None
 
     def _submit_name(self) -> None:
         name = self._name.strip()
@@ -224,19 +241,6 @@ class ScreenController:
             if reason in _REASON_HINTS:
                 return _REASON_HINTS[reason]
         return "Improve quality"
-
-    @staticmethod
-    def _direction_hint(state) -> str:
-        remaining = [b.yaw_center for b in state.remaining_bins]
-        if not remaining:
-            return "Complete"
-        left = [y for y in remaining if y < 0]
-        right = [y for y in remaining if y > 0]
-        if len(left) > len(right):
-            return "Turn your head left"
-        return "Turn your head right" if right else "Look forward"
-
-    # -- input & lifecycle -------------------------------------------------
 
     def _on_mouse(self, event: int, x: int, y: int, flags: int, param: object) -> None:
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -273,7 +277,7 @@ class ScreenController:
         except CameraError as exc:
             self._logger.warning("Camera read failed: %s", exc)
             return None
-        image = cv2.resize(raw.image, self._size)
+        image = cv2.flip(cv2.resize(raw.image, self._size), 1)  # mirror: natural selfie view
         return Frame(image=image, timestamp=raw.timestamp, frame_id=raw.frame_id)
 
     def _open_camera(self) -> bool:
