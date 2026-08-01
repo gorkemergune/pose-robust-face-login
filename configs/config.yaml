@@ -1,0 +1,49 @@
+# Application configuration for the pose-robust face login system.
+# Values below are defaults; override per environment as needed.
+# All keys are optional — the loader falls back to the same defaults in code.
+
+app:
+  name: "Pose-Robust Face Login"
+
+logging:
+  level: "INFO"                 # DEBUG | INFO | WARNING | ERROR
+  file: null                    # null -> console only; or a path like "logs/app.log"
+  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+
+camera:
+  index: 0
+  width: 1280
+  height: 720
+  target_fps: 30
+
+detection:
+  model_name: "buffalo_l"
+  det_size: 640
+  det_threshold: 0.5
+
+alignment:
+  image_size: 112
+
+pose:
+  yaw_min: -90.0
+  yaw_max: 90.0
+
+quality:
+  blur_threshold: 100.0
+  brightness_min: 40.0
+  brightness_max: 220.0
+  min_face_size: 112
+  min_confidence: 0.6
+  stability_frames: 3
+
+coverage:
+  yaw_bins: 18
+  yaw_min: -90.0
+  yaw_max: 90.0
+
+recognition:
+  embedding_dim: 512
+  threshold: 0.44
+
+database:
+  path: "data/face_login.db"
