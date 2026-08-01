@@ -111,6 +111,11 @@ class ApplicationWindow:
         cv2.imshow(self._title, frame)
         return cv2.waitKey(1)
 
+    def set_mouse_callback(self, callback) -> None:
+        """Register an OpenCV mouse callback, creating the window if needed."""
+        self._ensure_window()
+        cv2.setMouseCallback(self._title, callback)
+
     def close(self) -> None:
         """Destroy the window if it exists. Safe to call multiple times."""
         if self._created:

@@ -119,7 +119,7 @@ python -m venv .venv
 source .venv/bin/activate
 
 # 3. Install dependencies
-pip install opencv-python insightface numpy pyyaml onnxruntime
+pip install opencv-python insightface numpy pyyaml pillow onnxruntime
 #   For CUDA acceleration, install the GPU runtime instead of onnxruntime:
 #   pip install onnxruntime-gpu
 ```
@@ -139,37 +139,39 @@ python -m face_login
 
 ## Usage
 
-Launch with `python -m face_login`. A window opens showing the live camera with
-overlays. The application starts in **Login** mode.
+Launch with `python -m face_login`. The **main menu** opens:
 
-- **Register mode** — press **`R`**. You are prompted once in the terminal for a
-  user name, then a fresh coverage session begins. Slowly turn your head left and
-  right; each new pose bin that passes the quality gate is captured and stored.
-  The coverage bar fills as bins are covered. When coverage is complete the app
-  automatically returns to Login mode.
+<p align="center"><img src="docs/menu.png" width="640"></p>
 
-  ![Register mode](docs/register_demo.png)
+- **Kayıt Ol / Register** — click the button or press **`R`**, type a user name and
+  press **Enter** (or click **Gönder**). The camera opens and guides you through a
+  **180° scan**: turn your head slowly left ↔ right while the coverage bar fills.
+  Live feedback shows when a pose is **captured** (green) or why a frame was
+  **rejected** (red — e.g. "Sabit durun", "Kameraya yaklaşın"), plus a directional
+  hint ("Başınızı sola çevirin"). When every pose bin is covered, registration is
+  **saved** automatically. Re-registering an existing name overwrites the old data.
 
-  _Registration overlay: the segmented coverage bar (green = captured, gray =
-  remaining) with live progress and per-pose guidance. (Illustrative UI render.)_
+  ![Registration scan](docs/register_demo.png)
 
-- **Login mode** — the default. Each frame the current face is embedded and
-  matched against the gallery; the overlay shows the recognized user, similarity
-  score, and best matching pose, or an "Unknown user" panel when below threshold.
+  _Registration scan: the segmented coverage bar (green = captured, gray =
+  remaining) with live progress and per-pose feedback. (Illustrative UI render.)_
 
-  ![Login mode](docs/login_demo.png)
+- **Giriş Yap / Login** — click the button or press **`L`**. Show your face to the
+  camera; once recognized you are greeted with **"Hoş geldin, &lt;name&gt;!"** and then
+  a **"Giriş Başarılı"** confirmation screen.
 
-  _Login overlay: bounding box, landmarks, pose/quality panel, FPS, and the
-  recognized identity with its similarity score. (Illustrative UI render.)_
+  <p align="center"><img src="docs/success.png" width="560"></p>
 
-**Keyboard shortcuts** (interpreted only by the application layer):
+**Controls**
 
-| Key   | Action                     |
-| ----- | -------------------------- |
-| `R`   | Switch to**Register** mode |
-| `L`   | Switch to**Login** mode    |
-| `Q`   | Quit                       |
-| `ESC` | Quit                       |
+| Input          | Action                             |
+| -------------- | ---------------------------------- |
+| Click / `R`    | Register                           |
+| Click / `L`    | Login                              |
+| `Enter`        | Submit name                        |
+| `Esc`          | Back / cancel the current scan     |
+| `Q`            | Quit (from menu or result screens) |
+| _any key_      | Continue from a result screen      |
 
 ---
 
@@ -240,8 +242,6 @@ not precise angular measurement.
   requires a local webcam and display.
 
 ---
-
---
 
 ## License
 
