@@ -44,15 +44,15 @@ class ScreenRenderer:
         """Store screen geometry and the palette; build no window."""
         self.width = width
         self.height = height
-        self._bg_top: Color = (22, 26, 36)
-        self._bg_bottom: Color = (32, 38, 54)
-        self._card: Color = (40, 46, 62)
-        self._text: Color = (238, 242, 248)
-        self._muted: Color = (150, 160, 175)
-        self._green: Color = (46, 170, 110)
-        self._blue: Color = (70, 130, 210)
-        self._red: Color = (200, 72, 72)
-        self._gray: Color = (92, 100, 118)
+        self._bg_top: Color = (8, 10, 16)       # near-black
+        self._bg_bottom: Color = (14, 20, 36)   # deep navy
+        self._card: Color = (18, 26, 44)
+        self._text: Color = (230, 236, 246)
+        self._muted: Color = (110, 124, 152)
+        self._green: Color = (34, 132, 116)     # teal (register / success)
+        self._blue: Color = (44, 104, 194)      # deep blue (login / info)
+        self._red: Color = (184, 66, 66)
+        self._gray: Color = (40, 48, 68)        # dark slate (quit / back)
         self._tones = {"positive": self._green, "negative": self._red,
                        "info": self._blue, "success": self._green,
                        "error": self._red}
@@ -64,14 +64,14 @@ class ScreenRenderer:
         """Main menu with Register / Login / Quit choices."""
         img = self._blank()
         d = ImageDraw.Draw(img)
-        self._center(d, self.height * 0.16, "Pose-Robust Yüz Girişi", 44, True, self._text)
-        self._center(d, self.height * 0.28, "Ana Menü", 24, False, self._muted)
+        self._center(d, self.height * 0.16, "Pose-Robust Face Login", 44, True, self._text)
+        self._center(d, self.height * 0.28, "Main Menu", 24, False, self._muted)
         buttons = [
-            self._make_button(d, 0.42, "Kayıt Ol  [R]", "register", "r", self._green),
-            self._make_button(d, 0.58, "Giriş Yap  [L]", "login", "l", self._blue),
-            self._make_button(d, 0.74, "Çıkış  [Q]", "quit", "q", self._gray),
+            self._make_button(d, 0.42, "Register  [R]", "register", "r", self._green),
+            self._make_button(d, 0.58, "Login  [L]", "login", "l", self._blue),
+            self._make_button(d, 0.74, "Quit  [Q]", "quit", "q", self._gray),
         ]
-        self._center(d, self.height * 0.90, "Fare ile tıklayın veya kısayol tuşuna basın",
+        self._center(d, self.height * 0.90, "Click a button or press the shortcut key",
                      18, False, self._muted)
         return self._to_bgr(img), buttons
 
@@ -79,23 +79,23 @@ class ScreenRenderer:
         """Name-entry screen showing the typed text and Submit / Back actions."""
         img = self._blank()
         d = ImageDraw.Draw(img)
-        self._center(d, self.height * 0.18, "Kayıt — İsim Girin", 38, True, self._text)
+        self._center(d, self.height * 0.18, "Register — Enter Name", 38, True, self._text)
         bx1, by1, bx2, by2 = int(self.width*0.18), int(self.height*0.38), \
             int(self.width*0.82), int(self.height*0.50)
         d.rounded_rectangle([bx1, by1, bx2, by2], radius=12, fill=self._card,
                             outline=self._blue, width=2)
-        shown = name if name else "İsminizi yazın…"
+        shown = name if name else "Type your name…"
         color = self._text if name else self._muted
         d.text((bx1 + 20, by1 + (by2 - by1) // 2 - 18), shown + ("|" if name else ""),
                font=self._font(30, False), fill=color)
         buttons = [
-            self._make_button(d, 0.62, "Gönder  [Enter]", "submit", "", self._green,
+            self._make_button(d, 0.62, "Submit  [Enter]", "submit", "", self._green,
                               cx_frac=0.68, w=280),
-            self._make_button(d, 0.62, "Geri  [Esc]", "back", "", self._gray,
+            self._make_button(d, 0.62, "Back  [Esc]", "back", "", self._gray,
                               cx_frac=0.32, w=280),
         ]
         self._center(d, self.height * 0.86,
-                     "[Enter] Gönder    [Esc] Geri    [Backspace] Sil", 18, False, self._muted)
+                     "[Enter] Submit     [Esc] Back     [Backspace] Delete", 18, False, self._muted)
         return self._to_bgr(img), buttons
 
     def message(self, title: str, subtitle: str, tone: str) -> np.ndarray:
@@ -112,7 +112,7 @@ class ScreenRenderer:
         self._center(d, self.height * 0.56, title, 46, True, self._text)
         if subtitle:
             self._center(d, self.height * 0.68, subtitle, 26, False, self._muted)
-        self._center(d, self.height * 0.90, "Devam için bir tuşa basın", 18, False, self._muted)
+        self._center(d, self.height * 0.90, "Press any key to continue", 18, False, self._muted)
         return self._to_bgr(img)
 
     def scan_banner(self, bgr_frame: np.ndarray, text: str, tone: str) -> np.ndarray:

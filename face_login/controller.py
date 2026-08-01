@@ -24,11 +24,11 @@ from face_login.services.register import RegisterService
 _MAX_NAME = 24
 _WELCOME_SECONDS = 2.0
 _REASON_HINTS = {
-    QualityReason.FACE_TOO_SMALL: "Kameraya yaklaşın",
-    QualityReason.TOO_BLURRY: "Sabit durun",
-    QualityReason.LOW_DETECTION_SCORE: "Yüzünüzü net gösterin",
-    QualityReason.LOW_POSE_CONFIDENCE: "Yüzünüzü düz tutun",
-    QualityReason.INVALID_EMBEDDING: "Tekrar deneyin",
+    QualityReason.FACE_TOO_SMALL: "Move closer",
+    QualityReason.TOO_BLURRY: "Hold still",
+    QualityReason.LOW_DETECTION_SCORE: "Show your face clearly",
+    QualityReason.LOW_POSE_CONFIDENCE: "Keep your face straight",
+    QualityReason.INVALID_EMBEDDING: "Try again",
 }
 
 
@@ -136,34 +136,34 @@ class ScreenController:
             return self._to_menu()
         if state.complete:
             self._camera.close()
-            self._show_message("Kayıt Tamamlandı", self._active_name, "success")
+            self._show_message("Registration Complete", self._active_name, "success")
 
     def _scan_login(self) -> None:
         frame = self._read()
         if frame is None:
             return self._to_menu()
         face, pose, quality, embedding = self._pipeline(frame)
-        tone, text = "negative", "Yüz bulunamadı"
+        tone, text = "negative", "No face detected"
         if embedding is not None:
             result = self._login.login(embedding)
             if result.success:
-                self._active_name = result.user_name or "Kullanıcı"
+                self._active_name = result.user_name or "User"
                 self._camera.close()
                 self._welcome_at = perf_counter()
                 self._state = State.WELCOME
                 return
-            tone, text = "info", "Yüz taranıyor…"
+            tone, text = "info", "Scanning…"
         self._overlay.draw(frame.image, detected_face=face, pose=pose, quality=quality)
         display = self._screens.scan_banner(frame.image, text, tone)
         if (self._window.show(display) & 0xFF) == 27:
             self._to_menu()
 
     def _welcome(self) -> None:
-        frame = self._screens.message(f"Hoş geldin, {self._active_name}!",
-                                      "Giriş doğrulanıyor…", "success")
+        frame = self._screens.message(f"Welcome, {self._active_name}!",
+                                      "Verifying login…", "success")
         key = self._window.show(frame)
         if key != -1 or perf_counter() - self._welcome_at > _WELCOME_SECONDS:
-            self._show_message("Giriş Başarılı", self._active_name, "success")
+            self._show_message("Login Successful", self._active_name, "success")
 
     def _message(self) -> None:
         title, subtitle, tone = self._msg
@@ -194,14 +194,14 @@ class ScreenController:
 
     def _register_step(self, face, pose, quality, embedding, timestamp):
         if face is None:
-            return "negative", "Yüz bulunamadı"
+            return "negative", "No face detected"
         if quality is None:
-            return "info", "İşleniyor…"
+            return "info", "Processing…"
         if not quality.passed:
             return "negative", self._reason_hint(quality.reasons)
         result = self._register.process(pose, quality, embedding, timestamp=timestamp)
         if result.stored:
-            return "positive", f"Kaydedildi ({result.current_bin:.0f}°)"
+            return "positive", f"Captured ({result.current_bin:.0f}°)"
         return "info", self._direction_hint(self._tracker.state())
 
     def _submit_name(self) -> None:
@@ -223,18 +223,18 @@ class ScreenController:
         for reason in reasons:
             if reason in _REASON_HINTS:
                 return _REASON_HINTS[reason]
-        return "Kaliteyi artırın"
+        return "Improve quality"
 
     @staticmethod
     def _direction_hint(state) -> str:
         remaining = [b.yaw_center for b in state.remaining_bins]
         if not remaining:
-            return "Tamamlandı"
+            return "Complete"
         left = [y for y in remaining if y < 0]
         right = [y for y in remaining if y > 0]
         if len(left) > len(right):
-            return "Başınızı sola çevirin"
-        return "Başınızı sağa çevirin" if right else "Öne bakın"
+            return "Turn your head left"
+        return "Turn your head right" if right else "Look forward"
 
     # -- input & lifecycle -------------------------------------------------
 
@@ -282,7 +282,7 @@ class ScreenController:
             return True
         except CameraError as exc:
             self._logger.error("Camera open failed: %s", exc)
-            self._show_message("Kamera Açılamadı", "Cihazı kontrol edin", "error")
+            self._show_message("Camera Unavailable", "Check the device", "error")
             return False
 
     def _to_menu(self) -> None:

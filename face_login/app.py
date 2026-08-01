@@ -8,6 +8,7 @@ math, or SQL — only composition and lifecycle.
 """
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,7 @@ class FaceLoginApplication:
         self._logger = get_logger(__name__)
         cfg = self._config
 
+        self._prepare_model_dir(cfg.detection.model_name)
         Path(cfg.database.path).parent.mkdir(parents=True, exist_ok=True)
         self._database = Database(cfg.database.path, initialize=True)
         repository = Repository(self._database)
@@ -75,6 +77,19 @@ class FaceLoginApplication:
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         """Always release resources when leaving a ``with`` block."""
         self.close()
+
+    @staticmethod
+    def _prepare_model_dir(model_name: str) -> None:
+        """Remove an empty model placeholder so InsightFace can auto-download.
+
+        An existing but empty ``models/<name>/`` directory makes InsightFace
+        skip the download and then fail (no models found). If the folder holds
+        no ``.onnx`` files it is removed so the pack downloads on first use;
+        a folder with real weights is left untouched.
+        """
+        model_dir = Path("models") / model_name
+        if model_dir.exists() and not any(model_dir.glob("*.onnx")):
+            shutil.rmtree(model_dir, ignore_errors=True)
 
     def run(self) -> None:
         """Run the screen-driven application loop until the user quits."""

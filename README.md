@@ -124,10 +124,10 @@ pip install opencv-python insightface numpy pyyaml pillow onnxruntime
 #   pip install onnxruntime-gpu
 ```
 
-**Model download.** The `buffalo_l` pack (~275 MB) is fetched automatically by
-InsightFace on first run into `models/buffalo_l/`. If the repository ships an
-empty `models/buffalo_l/` placeholder, remove it first so the download can
-proceed, or place the pack's `.onnx` files (including `w600k_r50.onnx`) there
+**Model download.** The `buffalo_l` pack (~275 MB) is downloaded automatically by
+InsightFace into `models/buffalo_l/` on first run — the app clears an empty
+placeholder folder if one is present so the download can proceed. To run
+offline, place the pack's `.onnx` files (including `w600k_r50.onnx`) there
 manually.
 
 ```bash
